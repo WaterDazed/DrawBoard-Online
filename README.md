@@ -68,3 +68,5 @@ npm run start
 
 - 异步控制（显示的对方的笔与它实际正在写画的字迹不同步）
 
+![image](https://github.com/WaterDazed/DrawBoard-Online/blob/master/IMG/1.png) 
+
