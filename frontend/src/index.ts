@@ -19,17 +19,18 @@ export interface ISyncDrawConfProps {
     config: ISyncConf;
 }
 window.onload = () => {
+
     //画布对象和上下文
     let canvas = T.getEle("#canvas")! as HTMLCanvasElement;
     let ctx = canvas.getContext("2d")!;
     //协作设置
     let msgInput = T.getEle(".msgTxt")! as HTMLTextAreaElement;
-
     //实例化聊天对象
     let chat = ChatBoots(ctx);
     //视屏截图
     videoShot(chat, ctx, canvas);
     //实例化画板
+
     const db = new DrawBoard(
         {
             canvas,
@@ -41,7 +42,8 @@ window.onload = () => {
             winH: T.getTargetWH()[1],
         },
         chat.getSocket()
-    );
+    ); 
+ 
     //视频会议
     videoChat(chat);
     //配置重置
@@ -143,43 +145,7 @@ window.onload = () => {
     //        })
     //    );
     //};
-    //latency
-    T.getEle("#latency-0").onclick = () => {
-        db.delayTime = 0;
-    };
-    T.getEle("#latency-1").onclick = () => {
-        db.delayTime = 1000;
-    };
-    T.getEle("#latency-2").onclick = () => {
-        db.delayTime = 2000;
-    };
-    T.getEle("#latency-3").onclick = () => {
-        db.delayTime = 3000;
-    };
-    T.getEle("#latency-4").onclick = () => {
-        db.delayTime = 4000;
-    };
-    //lag
-    T.getEle("#lag-S").onclick = () => {
-        db.lagStartFrame = 0;
-        db.lagFrame = 0;
-    };
-    T.getEle("#lag-A").onclick = () => {
-        db.lagStartFrame = 10;
-        db.lagFrame = 60;
-    };
-    T.getEle("#lag-B").onclick = () => {
-        db.lagStartFrame = 90;
-        db.lagFrame = 60;
-    };
-    T.getEle("#lag-C").onclick = () => {
-        db.lagStartFrame = 120;
-        db.lagFrame = 60;
-    };
-    T.getEle("#lag-D").onclick = () => {
-        db.lagStartFrame = 150;
-        db.lagFrame = 60;
-    };
+
 
     let scaleNum = T.getEle("#scaleNum")! as HTMLInputElement;
     T.getEle("#larger").onclick = () => {

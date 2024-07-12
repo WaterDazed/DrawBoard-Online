@@ -1,4 +1,5 @@
 import { Socket } from "socket.io-client";
+import T from "@/utils/index";
 
 export type SocketIOClientType = typeof Socket;
 export interface IDrawboradConf {
@@ -13,6 +14,11 @@ export interface IDrawboradConf {
 }
 export type ICtxStyle = Partial<IDrawboradConf>;
 export type DrawEvent = MouseEvent & TouchEvent;
+
+interface LAG {
+    lagFrame: number;
+    lagStartFrame: number;
+}
 class DrawBoard {
     //画布对象和上下文
     socket: SocketIOClientType;
@@ -29,19 +35,59 @@ class DrawBoard {
     //时间旅行步数
     //timeTravelStep: number = -1;
 
-    //时延控制
+
     recvBuffer: Array<any> = [];
-    delayTime: number = 0;
+    //时延控制
+    delayList: Array<number> = [0, 100, 500, 1000, 2000, 3000, 4500, 6000];//ms
+    delayButtonList: Array<HTMLElement> = new Array<HTMLElement>(8);
+    inherentDelay: number = 27;
+    delayTime: number = 100 - this.inherentDelay;
+    delayNum: number = 7;
     //卡顿控制
+    lagList: Array<LAG> = [
+        { lagStartFrame: 0, lagFrame: 0 },
+        { lagStartFrame: 30, lagFrame: 15 },
+        { lagStartFrame: 30, lagFrame: 30 },
+        { lagStartFrame: 30, lagFrame: 45 },
+        { lagStartFrame: 30, lagFrame: 60 },
+        { lagStartFrame: 30, lagFrame: 75 },
+        { lagStartFrame: 30, lagFrame: 90 },
+        { lagStartFrame: 30, lagFrame: 105 },
+        { lagStartFrame: 60, lagFrame: 15 },
+        { lagStartFrame: 60, lagFrame: 45 },
+        { lagStartFrame: 60, lagFrame: 75 },
+        { lagStartFrame: 60, lagFrame: 105 },
+        { lagStartFrame: 90, lagFrame: 15 },
+        { lagStartFrame: 90, lagFrame: 45 },
+        { lagStartFrame: 90, lagFrame: 75 },
+        { lagStartFrame: 90, lagFrame: 105 },
+
+    ];
+    lagButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
     lagStartFrame: number = 0;
     lagFrame: number = 0;
     lagStartCount: number = 0;
     lagCount: number = 0;
+    lagNum: number = 15;
     //绘制
     remoteLastX: number = 0;
     remoteLastY: number = 0;
     lastX: number = 0;
     lastY: number = 0;
+    //计时器
+    timer: HTMLElement;
+    timerStartButton: HTMLElement;
+    timerEndButton: HTMLElement;
+    timerStartFlag: boolean;
+    time: number;
+    //示例图片
+    img: Array<HTMLElement> = new Array<HTMLElement>(4);
+    imgNum: number = 5;
+    //就绪与完成
+    selfReady: boolean;
+    remoteReady: boolean;
+    selfComplete: boolean;
+    remoteComplete: boolean;
 
 
     drawLayerLeft: number = 0; //画布横坐标
@@ -73,30 +119,85 @@ class DrawBoard {
         this.canvas.style.backgroundColor =/* obj.canvasColor ?? */"none";
         this.updateParam();
         this.init();
-        this.ctx.beginPath();
+        //获取计时器
+        this.timer = T.getEle("#timer")!;
+        this.timerStartButton = T.getEle("#timerStart")!;
+        this.timerEndButton = T.getEle("#timerEnd")!;
+        this.timerEndButton.hidden = true;
+        this.time = 0;
+        this.timerStartFlag = false;
+        //获取示例图片
+        for (let i = 0; i <= this.imgNum; i++) {
+            this.img[i] = T.getEle("#img" + i.toString());
+            if (i != 0)
+                this.img[i].hidden = true;
+        }
+        //初始化时延和卡顿按钮队列与监听
+        for (let i = 1; i <= this.delayNum; i++) {
+            this.delayButtonList[i] = T.getEle("#latency-" + i.toString())!;
+            this.delayButtonList[i].onclick = () => {
+                this.delayTime = this.delayList[i] - this.inherentDelay;
+                this.lagStartFrame = this.lagFrame = this.lagStartCount = this.lagCount = 0;
+                this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
+                this.HighlightButton(1, i);
+            }
+        };
+        for (let i = 1; i <= this.lagNum; i++) {
+            this.lagButtonList[i] = T.getEle("#lag-" + i.toString())!
+            this.lagButtonList[i].onclick = () => {
+                this.lagStartFrame = this.lagList[i].lagStartFrame;
+                this.lagFrame = this.lagList[i].lagFrame;
+                this.lagStartCount = this.lagCount = 0;
+                this.delayTime = 100 - this.inherentDelay;
+                this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
+                this.HighlightButton(2, i);
+            }
+        }
+        //初始化就绪与完成
+        this.selfReady = this.selfComplete = this.remoteReady = this.remoteComplete = false;
 
-        //alert(this.delayTime);
+        //设置绘画监听
         this.socket.on("getDrawData", (res: string) => {
             let data = JSON.parse(res);
             if (data.username != sessionStorage.getItem("drawusername")) {//如果发送端不是自己
                 let timeStamp = Date.parse(new Date().toString());
                 data.timeStamp = timeStamp;
                 this.recvBuffer.push(data);
-            }               
+            }
         });
-        setInterval(() => {//定时检查recvBuffer
-            let timeNow = Date.parse(new Date().toString());//ms
+        //设置计时同步监听
+        this.socket.on("getTimerData", (res: string) => {
+            let data = JSON.parse(res);
+            if (data.username != sessionStorage.getItem("drawusername")) {//如果发送端不是自己
+                if (data.type == 1)
+                    this.remoteReady = true;
+                if (data.type == 2)
+                    this.remoteComplete = true;
+            }
+        });
+        //计时器按钮监听
+        this.timerStartButton.onclick = () => {
+            this.selfReady = true;
+            this.timerStartButton.hidden = true;
+            this.SyncTimerData(1);
+        };
+        this.timerEndButton.onclick = () => {
+            this.selfComplete = true;
+            this.timerEndButton.hidden = true;
+            this.SyncTimerData(2);
+        };
+
+        //设置定时器
+        setInterval(() => {
+            //定时检查recvBuffer
+            let timeNow = Date.now();
             if (this.recvBuffer.length > 0) {
                 let data = this.recvBuffer[0];
                 if (timeNow - data.timeStamp >= this.delayTime) {
-                    if (this.lagStartFrame == 0 || this.lagFrame == 0 ||this.lagStartCount < this.lagStartFrame) {
+                    if (this.lagStartFrame == 0 || this.lagFrame == 0 || this.lagStartCount < this.lagStartFrame) {
                         let x = data.axis[0], y = data.axis[1];
-                        //if (data.touchFirst)
-                        //    this.ctx.beginPath();
-                        //this.ctx.lineTo(data.axis[0], data.axis[1]);
-                        //this.ctx.stroke();
                         if (data.touchFirst) {
-                            this.DrawCircle(x, y, "#ff0000");
+                            this.DrawRect(x, y, "#ff0000");
                             this.remoteLastX = x;
                             this.remoteLastY = y;
                         }
@@ -104,12 +205,11 @@ class DrawBoard {
                             for (let t = 0.00; t < 1.00; t += 0.01) {
                                 let lerpX = DrawBoard.Lerp(this.remoteLastX, x, t);
                                 let lerpY = DrawBoard.Lerp(this.remoteLastY, y, t);
-                                this.DrawCircle(lerpX, lerpY,"#ff0000");
+                                this.DrawRect(lerpX, lerpY, "#ff0000");
                             }
                             this.remoteLastX = x;
                             this.remoteLastY = y;
                         }
-                        //this.pushStack();
                         this.recvBuffer.shift();
                         this.lagStartCount++;
                     } else if (this.lagCount < this.lagFrame) {
@@ -120,13 +220,52 @@ class DrawBoard {
                     }
                 }
             }
-        }, 16);//60fps
+            //计时器
+
+        },
+            16//60fps
+        );
+        setInterval(() => {
+            if (this.timerStartFlag) {
+                this.time += 0.1;
+                this.timer.textContent = "计时器：" + this.time.toFixed(1);
+            }
+            if (this.selfReady && this.remoteReady) {
+                this.time = 0;
+                this.timerStartFlag = true;
+                this.selfReady = this.remoteReady = false;
+                this.timerEndButton.hidden = false;
+            }
+            if (this.selfComplete && this.remoteComplete) {
+                this.timerStartFlag = false;
+                this.selfComplete = this.remoteComplete = false;
+                this.timerStartButton.hidden = false;
+                this.clearCanvas();
+                alert("本节实验完成 请填写调查问卷");
+            }
+        },
+            100
+        );
     }
-    DrawCircle(x: number, y: number, color: string) {
-        this.ctx.strokeStyle = color;
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, 1, 0, 2 * Math.PI);
-        this.ctx.stroke();
+    HighlightButton(type: number, num: number) {
+        for (let i = 1; i <= this.delayNum; i++)
+            if (type == 1 && i == num)
+                this.delayButtonList[i].textContent = "√";
+            else this.delayButtonList[i].textContent = i.toString();
+        for (let i = 1; i <= this.delayNum; i++)
+            if (type == 2 && i == num)
+                this.lagButtonList[i].textContent = "√";
+            else this.lagButtonList[i].textContent = i.toString();
+    }
+    ShowImg(num1: number, num2: number) {
+        for (let i = 0; i <= this.imgNum; i++)
+            if (i == num1 || i == num2)
+                this.img[i].hidden = false;
+            else this.img[i].hidden = true;
+    }
+    DrawRect(x: number, y: number, color: string) {
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x, y, 4, 4);
     }
     //更新参数 画布边界值和画布横纵坐标
     updateParam() {
@@ -182,15 +321,23 @@ class DrawBoard {
      * @desc 同步数据方法(通过socket.io传送数据)
      * @param Array axis 坐标数组
      */
-    syncData(axis: number[], touchFirst: boolean) {
-        let timeStamp = 0;
+    //同步绘画数据
+    SyncDrawData(axis: number[], touchFirst: boolean) {
         let data = JSON.stringify({
             username: sessionStorage.getItem("drawusername"),
             axis,
-            timeStamp,
+            timeStamp: 0,
             touchFirst
         });
         this.socket.emit("sendDrawData", data);
+    }
+    //同步计时
+    SyncTimerData(type: number) {
+        let data = JSON.stringify({
+            username: sessionStorage.getItem("drawusername"),
+            type
+        });
+        this.socket.emit("sendTimerData", data);
     }
     /**
      * @desc 绘制事件绑定监听
@@ -233,7 +380,7 @@ class DrawBoard {
                     //this.ctx.lineTo(mouseAxis[0], mouseAxis[1]);
                     let x = mouseAxis[0], y = mouseAxis[1];
                     if (touchFirst) {
-                        this.DrawCircle(x, y,"#000000");
+                        this.DrawRect(x, y, "#000000");
                         this.lastX = x;
                         this.lastY = y;
                     }
@@ -241,15 +388,15 @@ class DrawBoard {
                         for (let t = 0.00; t < 1.00; t += 0.01) {
                             let lerpX = DrawBoard.Lerp(this.lastX, x, t);
                             let lerpY = DrawBoard.Lerp(this.lastY, y, t);
-                            this.DrawCircle(lerpX, lerpY,"#000000");
+                            this.DrawRect(lerpX, lerpY, "#000000");
                         }
                         this.lastX = x;
                         this.lastY = y;
                     }
-                    this.syncData(mouseAxis, touchFirst);
-                    if (touchFirst) 
+                    this.SyncDrawData(mouseAxis, touchFirst);
+                    if (touchFirst)
                         touchFirst = false;
-                 
+
                 }
                 //this.ctx.stroke();
                 //this.pushStack();
@@ -258,10 +405,10 @@ class DrawBoard {
         //监听触摸（点击）屏幕事件结束，置空滑动事件和将当前画布信息进栈
         this.canvas[eventEnd] = (e: DrawEvent) => {
             this.canvas[eventMove] = null;
-            this.socket.emit(
-                "canSetBeginPath",
-                JSON.stringify({ username: sessionStorage.getItem("drawusername") })
-            );
+            //this.socket.emit(
+            //    "canSetBeginPath",
+            //    JSON.stringify({ username: sessionStorage.getItem("drawusername") })
+            //);
         };
     }
     //画布历史穿梭（前进和后退）
