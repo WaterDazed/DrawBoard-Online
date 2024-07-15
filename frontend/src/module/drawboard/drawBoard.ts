@@ -15,9 +15,10 @@ export interface IDrawboradConf {
 export type ICtxStyle = Partial<IDrawboradConf>;
 export type DrawEvent = MouseEvent & TouchEvent;
 
-interface LAG {
-    lagFrame: number;
-    lagStartFrame: number;
+const Queue = require("queue-fifo");
+interface STALL {
+    stallFrame: number;
+    stallStartFrame: number;
 }
 class DrawBoard {
     //画布对象和上下文
@@ -35,47 +36,47 @@ class DrawBoard {
     //时间旅行步数
     //timeTravelStep: number = -1;
 
-
-    recvBuffer: Array<any> = [];
+    //消息队列
+    recvBuffer = new Queue();
     //时延控制
-    delayList: Array<number> = [0, 100, 500, 1000, 2000, 3000, 4500, 6000];//ms
+    delayList: Array<number> = [0, 100, 500, 1000, 1750, 2500, 3500, 4500];//ms
     delayButtonList: Array<HTMLElement> = new Array<HTMLElement>(8);
     inherentDelay: number = 27;
     delayTime: number = 100 - this.inherentDelay;
     delayNum: number = 7;
     //卡顿控制
-    lagList: Array<LAG> = [
-        { lagStartFrame: 0, lagFrame: 0 },
-        { lagStartFrame: 30, lagFrame: 15 },
-        { lagStartFrame: 30, lagFrame: 30 },
-        { lagStartFrame: 30, lagFrame: 45 },
-        { lagStartFrame: 30, lagFrame: 60 },
-        { lagStartFrame: 30, lagFrame: 75 },
-        { lagStartFrame: 30, lagFrame: 90 },
-        { lagStartFrame: 30, lagFrame: 105 },
-        { lagStartFrame: 60, lagFrame: 15 },
-        { lagStartFrame: 60, lagFrame: 45 },
-        { lagStartFrame: 60, lagFrame: 75 },
-        { lagStartFrame: 60, lagFrame: 105 },
-        { lagStartFrame: 90, lagFrame: 15 },
-        { lagStartFrame: 90, lagFrame: 45 },
-        { lagStartFrame: 90, lagFrame: 75 },
-        { lagStartFrame: 90, lagFrame: 105 },
+    stallList: Array<STALL> = [
+        { stallStartFrame: 0, stallFrame: 0 },
+        { stallStartFrame: 20, stallFrame: 6 },
+        { stallStartFrame: 20, stallFrame: 18 },
+        { stallStartFrame: 20, stallFrame: 30 },
+        { stallStartFrame: 20, stallFrame: 45 },
+        { stallStartFrame: 20, stallFrame: 60 },
+        { stallStartFrame: 20, stallFrame: 90 },
+        { stallStartFrame: 20, stallFrame: 120 },
+        { stallStartFrame: 10, stallFrame: 6 },
+        { stallStartFrame: 10, stallFrame: 30 },
+        { stallStartFrame: 10, stallFrame: 60 },
+        { stallStartFrame: 10, stallFrame: 120 },
+        { stallStartFrame: 7, stallFrame: 6 },
+        { stallStartFrame: 7, stallFrame: 18 },
+        { stallStartFrame: 7, stallFrame: 45 },
+        { stallStartFrame: 7, stallFrame: 90 },
 
     ];
-    lagButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
-    lagStartFrame: number = 0;
-    lagFrame: number = 0;
-    lagStartCount: number = 0;
-    lagCount: number = 0;
-    lagNum: number = 15;
+    stallButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
+    stallStartFrame: number = 0;
+    stallFrame: number = 0;
+    stallStartCount: number = 0;
+    stallCount: number = 0;
+    stallNum: number = 15;
     //绘制
     remoteLastX: number = 0;
     remoteLastY: number = 0;
     lastX: number = 0;
     lastY: number = 0;
     //计时器
-    timer: HTMLElement;
+    timerText: HTMLElement;
     timerStartButton: HTMLElement;
     timerEndButton: HTMLElement;
     timerStartFlag: boolean;
@@ -112,15 +113,15 @@ class DrawBoard {
         this.canvasH = this.winH * 0.77; //画布高
         this.canvas.width = this.canvasW;
         this.canvas.height = this.canvasH;
-        this.canvasPadding =/* obj.canvasPadding ?? */5; //画布padding，用于界定边框线
+        this.canvasPadding = obj.canvasPadding ?? 5; //画布padding，用于界定边框线
         //画笔 画布相关数据
-        this.ctx.lineWidth =/* obj.penceilWeight ?? */3;
-        this.ctx.strokeStyle =/* obj.penceilColor ?? */"#000000";
-        this.canvas.style.backgroundColor =/* obj.canvasColor ?? */"none";
+        this.ctx.lineWidth = obj.penceilWeight ?? 3;
+        this.ctx.strokeStyle = obj.penceilColor ?? "#000000";
+        this.canvas.style.backgroundColor = obj.canvasColor ?? "#fffffff";
         this.updateParam();
         this.init();
         //获取计时器
-        this.timer = T.getEle("#timer")!;
+        this.timerText = T.getEle("#timerText")!;
         this.timerStartButton = T.getEle("#timerStart")!;
         this.timerEndButton = T.getEle("#timerEnd")!;
         this.timerEndButton.hidden = true;
@@ -137,17 +138,17 @@ class DrawBoard {
             this.delayButtonList[i] = T.getEle("#latency-" + i.toString())!;
             this.delayButtonList[i].onclick = () => {
                 this.delayTime = this.delayList[i] - this.inherentDelay;
-                this.lagStartFrame = this.lagFrame = this.lagStartCount = this.lagCount = 0;
+                this.stallStartFrame = this.stallFrame = this.stallStartCount = this.stallCount = 0;
                 this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
                 this.HighlightButton(1, i);
             }
         };
-        for (let i = 1; i <= this.lagNum; i++) {
-            this.lagButtonList[i] = T.getEle("#lag-" + i.toString())!
-            this.lagButtonList[i].onclick = () => {
-                this.lagStartFrame = this.lagList[i].lagStartFrame;
-                this.lagFrame = this.lagList[i].lagFrame;
-                this.lagStartCount = this.lagCount = 0;
+        for (let i = 1; i <= this.stallNum; i++) {
+            this.stallButtonList[i] = T.getEle("#lag-" + i.toString())!
+            this.stallButtonList[i].onclick = () => {
+                this.stallStartFrame = this.stallList[i].stallStartFrame;
+                this.stallFrame = this.stallList[i].stallFrame;
+                this.stallStartCount = this.stallCount = 0;
                 this.delayTime = 100 - this.inherentDelay;
                 this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
                 this.HighlightButton(2, i);
@@ -156,13 +157,13 @@ class DrawBoard {
         //初始化就绪与完成
         this.selfReady = this.selfComplete = this.remoteReady = this.remoteComplete = false;
 
-        //设置绘画监听
+        //设置绘画消息监听
         this.socket.on("getDrawData", (res: string) => {
             let data = JSON.parse(res);
             if (data.username != sessionStorage.getItem("drawusername")) {//如果发送端不是自己
-                let timeStamp = Date.parse(new Date().toString());
+                let timeStamp = Date.now();
                 data.timeStamp = timeStamp;
-                this.recvBuffer.push(data);
+                this.recvBuffer.enqueue(data);
             }
         });
         //设置计时同步监听
@@ -191,10 +192,10 @@ class DrawBoard {
         setInterval(() => {
             //定时检查recvBuffer
             let timeNow = Date.now();
-            if (this.recvBuffer.length > 0) {
-                let data = this.recvBuffer[0];
+            if (!this.recvBuffer.isEmpty()) {
+                let data = this.recvBuffer.peek();
                 if (timeNow - data.timeStamp >= this.delayTime) {
-                    if (this.lagStartFrame == 0 || this.lagFrame == 0 || this.lagStartCount < this.lagStartFrame) {
+                    if (this.stallStartFrame == 0 || this.stallFrame == 0 || this.stallStartCount < this.stallStartFrame) {
                         let x = data.axis[0], y = data.axis[1];
                         if (data.touchFirst) {
                             this.DrawRect(x, y, "#ff0000");
@@ -210,13 +211,13 @@ class DrawBoard {
                             this.remoteLastX = x;
                             this.remoteLastY = y;
                         }
-                        this.recvBuffer.shift();
-                        this.lagStartCount++;
-                    } else if (this.lagCount < this.lagFrame) {
-                        this.lagCount++;
+                        this.recvBuffer.dequeue();
+                        this.stallStartCount++;
+                    } else if (this.stallCount < this.stallFrame) {
+                        this.stallCount++;
                     } else {
-                        this.lagStartCount = 0;
-                        this.lagCount = 0;
+                        this.stallStartCount = 0;
+                        this.stallCount = 0;
                     }
                 }
             }
@@ -228,7 +229,7 @@ class DrawBoard {
         setInterval(() => {
             if (this.timerStartFlag) {
                 this.time += 0.1;
-                this.timer.textContent = "计时器：" + this.time.toFixed(1);
+                this.timerText.textContent = "计时器：" + this.time.toFixed(1);
             }
             if (this.selfReady && this.remoteReady) {
                 this.time = 0;
@@ -252,10 +253,10 @@ class DrawBoard {
             if (type == 1 && i == num)
                 this.delayButtonList[i].textContent = "√";
             else this.delayButtonList[i].textContent = i.toString();
-        for (let i = 1; i <= this.delayNum; i++)
+        for (let i = 1; i <= this.stallNum; i++)
             if (type == 2 && i == num)
-                this.lagButtonList[i].textContent = "√";
-            else this.lagButtonList[i].textContent = i.toString();
+                this.stallButtonList[i].textContent = "√";
+            else this.stallButtonList[i].textContent = i.toString();
     }
     ShowImg(num1: number, num2: number) {
         for (let i = 0; i <= this.imgNum; i++)
@@ -279,11 +280,11 @@ class DrawBoard {
     }
     //更新上下文样式参数
     updateCtxStyle(obj: ICtxStyle) {
-        console.log(obj);
-        this.ctx.lineWidth = obj.penceilWeight || this.ctx.lineWidth;
-        this.ctx.strokeStyle = obj.penceilColor || this.ctx.strokeStyle;
-        this.canvas.style.backgroundColor =
-            obj.canvasColor || this.canvas.style.backgroundColor;
+        //console.log(obj);
+        //this.ctx.lineWidth = obj.penceilWeight || this.ctx.lineWidth;
+        //this.ctx.strokeStyle = obj.penceilColor || this.ctx.strokeStyle;
+        //this.canvas.style.backgroundColor =
+        //    obj.canvasColor || this.canvas.style.backgroundColor;
     }
 
     /**
