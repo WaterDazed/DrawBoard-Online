@@ -39,29 +39,29 @@ class DrawBoard {
     //消息队列
     recvBuffer = new Queue();
     //时延控制
-    delayList: Array<number> = [0, 100, 500, 1000, 1750, 2500, 3500, 4500];//ms
+    delayList: Array<number> = [0, 1000, 500, 3500, 1750, 2500, 100, 4500];//ms
     delayButtonList: Array<HTMLElement> = new Array<HTMLElement>(8);
     inherentDelay: number = 27;
     delayTime: number = 100 - this.inherentDelay;
     delayNum: number = 7;
     //卡顿控制
     stallList: Array<STALL> = [
-        { stallStartFrame: 0, stallFrame: 0 },
-        { stallStartFrame: 20, stallFrame: 6 },
-        { stallStartFrame: 20, stallFrame: 18 },
-        { stallStartFrame: 20, stallFrame: 30 },
-        { stallStartFrame: 20, stallFrame: 45 },
-        { stallStartFrame: 20, stallFrame: 60 },
-        { stallStartFrame: 20, stallFrame: 90 },
-        { stallStartFrame: 20, stallFrame: 120 },
-        { stallStartFrame: 10, stallFrame: 6 },
-        { stallStartFrame: 10, stallFrame: 30 },
-        { stallStartFrame: 10, stallFrame: 60 },
-        { stallStartFrame: 10, stallFrame: 120 },
-        { stallStartFrame: 7, stallFrame: 6 },
-        { stallStartFrame: 7, stallFrame: 18 },
-        { stallStartFrame: 7, stallFrame: 45 },
-        { stallStartFrame: 7, stallFrame: 90 },
+        { "stallStartFrame": 0, "stallFrame": 0 },
+        { "stallStartFrame": 10, "stallFrame": 30 },
+        { "stallStartFrame": 7, "stallFrame": 45 },
+        { "stallStartFrame": 20, "stallFrame": 18 },
+        { "stallStartFrame": 20, "stallFrame": 30 },
+        { "stallStartFrame": 7, "stallFrame": 6 },
+        { "stallStartFrame": 20, "stallFrame": 6 },
+        { "stallStartFrame": 20, "stallFrame": 45 },
+        { "stallStartFrame": 10, "stallFrame": 6 },
+        { "stallStartFrame": 20, "stallFrame": 90 },
+        { "stallStartFrame": 7, "stallFrame": 18 },
+        { "stallStartFrame": 20, "stallFrame": 60 },
+        { "stallStartFrame": 10, "stallFrame": 60 },
+        { "stallStartFrame": 7, "stallFrame": 90 },
+        { "stallStartFrame": 10, "stallFrame": 120 },
+        { "stallStartFrame": 20, "stallFrame": 120 }
 
     ];
     stallButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
