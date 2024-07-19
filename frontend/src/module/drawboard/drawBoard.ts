@@ -47,21 +47,21 @@ class DrawBoard {
     //卡顿控制
     stallList: Array<STALL> = [
         { "stallStartFrame": 0, "stallFrame": 0 },
-        { "stallStartFrame": 10, "stallFrame": 30 },
-        { "stallStartFrame": 7, "stallFrame": 45 },
-        { "stallStartFrame": 20, "stallFrame": 18 },
-        { "stallStartFrame": 20, "stallFrame": 30 },
-        { "stallStartFrame": 7, "stallFrame": 6 },
-        { "stallStartFrame": 20, "stallFrame": 6 },
-        { "stallStartFrame": 20, "stallFrame": 45 },
+        { "stallStartFrame": 15, "stallFrame": 30 },
+        { "stallStartFrame": 10, "stallFrame": 45 },
+        { "stallStartFrame": 30, "stallFrame": 18 },
+        { "stallStartFrame": 30, "stallFrame": 30 },
         { "stallStartFrame": 10, "stallFrame": 6 },
-        { "stallStartFrame": 20, "stallFrame": 90 },
-        { "stallStartFrame": 7, "stallFrame": 18 },
-        { "stallStartFrame": 20, "stallFrame": 60 },
-        { "stallStartFrame": 10, "stallFrame": 60 },
-        { "stallStartFrame": 7, "stallFrame": 90 },
-        { "stallStartFrame": 10, "stallFrame": 120 },
-        { "stallStartFrame": 20, "stallFrame": 120 }
+        { "stallStartFrame": 30, "stallFrame": 6 },
+        { "stallStartFrame": 30, "stallFrame": 45 },
+        { "stallStartFrame": 15, "stallFrame": 6 },
+        { "stallStartFrame": 30, "stallFrame": 90 },
+        { "stallStartFrame": 10, "stallFrame": 18 },
+        { "stallStartFrame": 30, "stallFrame": 60 },
+        { "stallStartFrame": 15, "stallFrame": 60 },
+        { "stallStartFrame": 10, "stallFrame": 90 },
+        { "stallStartFrame": 15, "stallFrame": 120 },
+        { "stallStartFrame": 30, "stallFrame": 120 }
 
     ];
     stallButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
