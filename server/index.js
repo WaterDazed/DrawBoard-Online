@@ -8,7 +8,7 @@ app.use("/", routes);
 
 // Serve the files on port 3000.
 const port = process.env.port || 3001;
-const host = process.env.host || "192.168.50.167";
+const host = process.env.host || "192.168.0.105";
 const server = app.listen(port, () => {
   console.log(`app listening at ${host}:${port}!\n`);
 });

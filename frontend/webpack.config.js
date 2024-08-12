@@ -84,14 +84,14 @@ module.exports = {
         hotOnly: true,
         proxy: {
             "/api": {
-                target: "http://192.168.50.167:3001/api",
+                target: "http://192.168.0.105:3001/api",
                 pathWrite: {
                     "^/api": "",
                 },
                 changeOrgin: true,
             },
             "/": {
-                target: "http://192.168.50.167:3001",
+                target: "http://192.168.0.105:3001",
                 changeOrgin: true,
             },
         },

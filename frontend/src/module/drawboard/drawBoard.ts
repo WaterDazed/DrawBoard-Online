@@ -17,8 +17,8 @@ export type DrawEvent = MouseEvent & TouchEvent;
 
 const Queue = require("queue-fifo");
 interface STALL {
-    stallFrame: number;
-    stallStartFrame: number;
+    stallTime: number;
+    stallIntervalTime: number;
 }
 class DrawBoard {
     //画布对象和上下文
@@ -43,32 +43,31 @@ class DrawBoard {
     delayButtonList: Array<HTMLElement> = new Array<HTMLElement>(8);
     inherentDelay: number = 27;
     delayTime: number = 100 - this.inherentDelay;
-    delayNum: number = 7;
+    delayNum: number = 7; 
     //卡顿控制
-    stallList: Array<STALL> = [
-        { "stallStartFrame": 0, "stallFrame": 0 },
-        { "stallStartFrame": 15, "stallFrame": 30 },
-        { "stallStartFrame": 10, "stallFrame": 45 },
-        { "stallStartFrame": 30, "stallFrame": 18 },
-        { "stallStartFrame": 30, "stallFrame": 30 },
-        { "stallStartFrame": 10, "stallFrame": 6 },
-        { "stallStartFrame": 30, "stallFrame": 6 },
-        { "stallStartFrame": 30, "stallFrame": 45 },
-        { "stallStartFrame": 15, "stallFrame": 6 },
-        { "stallStartFrame": 30, "stallFrame": 90 },
-        { "stallStartFrame": 10, "stallFrame": 18 },
-        { "stallStartFrame": 30, "stallFrame": 60 },
-        { "stallStartFrame": 15, "stallFrame": 60 },
-        { "stallStartFrame": 10, "stallFrame": 90 },
-        { "stallStartFrame": 15, "stallFrame": 120 },
-        { "stallStartFrame": 30, "stallFrame": 120 }
-
+    stallList: Array<STALL> = [//ms
+        { "stallIntervalTime": 0, "stallTime": 0 },
+        { "stallIntervalTime": 1500, "stallTime": 50 },
+        { "stallIntervalTime": 1500, "stallTime": 100 },
+        { "stallIntervalTime": 1500, "stallTime": 200 },
+        { "stallIntervalTime": 1500, "stallTime": 300 },
+        { "stallIntervalTime": 1500, "stallTime": 450 },
+        { "stallIntervalTime": 1500, "stallTime": 600 },
+        { "stallIntervalTime": 1500, "stallTime": 800 },
+        { "stallIntervalTime": 1000, "stallTime": 100 },
+        { "stallIntervalTime": 1000, "stallTime": 300 },
+        { "stallIntervalTime": 1000, "stallTime": 600 },
+        { "stallIntervalTime": 1000, "stallTime": 800 },
+        { "stallIntervalTime": 500, "stallTime": 100 }, 
+        { "stallIntervalTime": 500, "stallTime": 200 },
+        { "stallIntervalTime": 500, "stallTime": 450 },
+        { "stallIntervalTime": 500, "stallTime": 600 }
     ];
     stallButtonList: Array<HTMLElement> = new Array<HTMLElement>(16);
-    stallStartFrame: number = 0;
-    stallFrame: number = 0;
-    stallStartCount: number = 0;
-    stallCount: number = 0;
+    stallIntervalTime: number = 0;
+    stallTime: number = 0;
+    stallIntervalTimeCount: number = 0;
+    stallTimeCount: number = 0;
     stallNum: number = 15;
     //绘制
     remoteLastX: number = 0;
@@ -138,17 +137,17 @@ class DrawBoard {
             this.delayButtonList[i] = T.getEle("#latency-" + i.toString())!;
             this.delayButtonList[i].onclick = () => {
                 this.delayTime = this.delayList[i] - this.inherentDelay;
-                this.stallStartFrame = this.stallFrame = this.stallStartCount = this.stallCount = 0;
+                this.stallIntervalTime = this.stallTime = this.stallIntervalTimeCount = this.stallTimeCount = 0;
                 this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
                 this.HighlightButton(1, i);
             }
         };
         for (let i = 1; i <= this.stallNum; i++) {
-            this.stallButtonList[i] = T.getEle("#lag-" + i.toString())!
+            this.stallButtonList[i] = T.getEle("#stall-" + i.toString())!
             this.stallButtonList[i].onclick = () => {
-                this.stallStartFrame = this.stallList[i].stallStartFrame;
-                this.stallFrame = this.stallList[i].stallFrame;
-                this.stallStartCount = this.stallCount = 0;
+                this.stallIntervalTime = this.stallList[i].stallIntervalTime;
+                this.stallTime = this.stallList[i].stallTime;
+                this.stallIntervalTimeCount = this.stallTimeCount = 0;
                 this.delayTime = 100 - this.inherentDelay;
                 this.ShowImg((i % 5) + 1, (i + 1) % 5 + 1);
                 this.HighlightButton(2, i);
@@ -195,7 +194,7 @@ class DrawBoard {
             if (!this.recvBuffer.isEmpty()) {
                 let data = this.recvBuffer.peek();
                 if (timeNow - data.timeStamp >= this.delayTime) {
-                    if (this.stallStartFrame == 0 || this.stallFrame == 0 || this.stallStartCount < this.stallStartFrame) {
+                    if (this.stallIntervalTime == 0 || this.stallTime == 0 || this.stallIntervalTimeCount < this.stallIntervalTime) {
                         let x = data.axis[0], y = data.axis[1];
                         if (data.touchFirst) {
                             this.DrawRect(x, y, "#ff0000");
@@ -212,12 +211,13 @@ class DrawBoard {
                             this.remoteLastY = y;
                         }
                         this.recvBuffer.dequeue();
-                        this.stallStartCount++;
-                    } else if (this.stallCount < this.stallFrame) {
-                        this.stallCount++;
+                        if (this.stallIntervalTimeCount < this.stallIntervalTime)
+                            this.stallIntervalTimeCount += 16;
+                    } else if (this.stallTimeCount < this.stallTime) {
+                        this.stallTimeCount += 16;
                     } else {
-                        this.stallStartCount = 0;
-                        this.stallCount = 0;
+                        this.stallIntervalTimeCount = 0;
+                        this.stallTimeCount = 0;
                     }
                 }
             }
